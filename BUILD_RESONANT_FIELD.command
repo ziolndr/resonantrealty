@@ -24,6 +24,7 @@ fi
 PROVIDER="${REAL_ESTATE_PROVIDER:-homeharvest}"
 MAX="${REAL_ESTATE_MAX_LISTINGS:-0}"
 MIN="${RESONANT_MIN_PROPERTIES:-500}"
+MIN_IMAGES="${RESONANT_MIN_IMAGE_PROPERTIES:-100}"
 PAGE="${REAL_ESTATE_PAGE_SIZE:-500}"
 EMBED="${ARBITER_EMBED_URL:-http://127.0.0.1:8000/v1/embed}"
 BATCH="${ARBITER_EMBED_BATCH:-128}"
@@ -88,7 +89,27 @@ if (( FETCHED < MIN )); then
   exit 1
 fi
 
-echo "validated snapshot: $FETCHED properties"
+PHOTO_COUNT="$($PYTHON - "$SNAP/properties.jsonl" <<'PY'
+import json,sys
+count=0
+for line in open(sys.argv[1], encoding="utf-8"):
+    try:
+        row=json.loads(line)
+    except Exception:
+        continue
+    images=row.get("images") or []
+    if row.get("imageUrl") or (isinstance(images,list) and images):
+        count += 1
+print(count)
+PY
+)"
+if (( PHOTO_COUNT < MIN_IMAGES )); then
+  echo "ERROR: Only $PHOTO_COUNT of $FETCHED properties contain photography; refusing to publish a barren field." >&2
+  echo "The current field was not changed." >&2
+  exit 1
+fi
+
+echo "validated snapshot: $FETCHED properties · $PHOTO_COUNT with photography"
 rm -rf "$NEXT"
 "$PYTHON" "$APP/bin/ARBITER_field_forge.py" init \
   --field-dir "$NEXT" \

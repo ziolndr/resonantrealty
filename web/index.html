@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#080808">
 <title>RESONANT</title>
 <meta name="description" content="Properties ranked by resonance.">
+<meta name="resonant-build" content="20260721-image-delivery-v3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -118,37 +119,142 @@ button,textarea{font:inherit;color:inherit;border:0;background:none}button{curso
   </div>
 </section>
 <script>
+const BUILD='20260721-image-delivery-v3';
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
 const configured=(params.get('api')||'').replace(/\/+$/,'');
 const API_BASE=configured||(location.protocol==='file:'?'http://127.0.0.1:8797':'');
 const api=path=>API_BASE+path;
+const CAN_PROXY_IMAGES=location.protocol==='https:'&&!configured;
 let plate='landing',results=[],index=0,flip=false,timer=null,searchStarted=0,elapsedTimer=null,searching=false;
-let landingItems=[],landingFrames=[],landingFrameIndex=0,landingSwapToken=0;
+let landingItems=[],landingFrames=[],landingFrameIndex=0,landingSwapToken=0,landingFailures=0;
 function show(id){document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id===id));plate=id}
 function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?'$'+Math.round(n).toLocaleString('en-US'):'Price on request'}
-function imageOf(x){return x&&(x.imageUrl||x.backdropPath||x.posterPath||(Array.isArray(x.images)&&x.images[0]))||''}
-function imageList(x){if(!x)return[];const raw=[x.imageUrl,x.backdropPath,x.posterPath,...(Array.isArray(x.images)?x.images:[]),x.imageFallback];return [...new Set(raw.filter(v=>typeof v==='string'&&/^https?:\/\//i.test(v)))].slice(0,8)}
-function setImage(img,item){const url=imageOf(item);img.onerror=()=>{if(item&&item.imageFallback&&img.src!==item.imageFallback)img.src=item.imageFallback};if(url){img.src=url;img.alt=item.address||item.title||'Property'}else{img.removeAttribute('src');img.alt=''}}
-function makeLandingFrames(items){const lists=items.filter(x=>imageList(x).length).map(item=>({item,images:imageList(item)}));const frames=[];for(let depth=0;depth<8;depth++){for(const row of lists){if(row.images[depth])frames.push({item:row.item,url:row.images[depth]});if(frames.length>=160)return frames}}return frames}
+function normalizeImageUrl(value){
+  if(typeof value!=='string')return'';
+  let url=value.trim().replace(/&amp;/g,'&');
+  if(!url)return'';
+  if(url.startsWith('//'))url='https:'+url;
+  if(/^http:\/\//i.test(url))url='https://'+url.slice(7);
+  if(!/^https?:\/\//i.test(url))return'';
+  try{return new URL(url).href}catch{return''}
+}
+function photoValue(value,out,depth=0){
+  if(depth>4||value==null)return;
+  if(typeof value==='string'){const url=normalizeImageUrl(value);if(url)out.push(url);return}
+  if(Array.isArray(value)){value.forEach(v=>photoValue(v,out,depth+1));return}
+  if(typeof value==='object'){
+    const keys=['imageUrl','image_url','primary_photo','primaryPhoto','photoUrl','photo_url','href','url','src','uri','MediaURL','MediaUrl','original','large','highRes','high_res'];
+    keys.forEach(k=>{if(k in value)photoValue(value[k],out,depth+1)});
+    ['images','photos','alt_photos','altPhotos','media','Media','description','metadata','original_record','extra'].forEach(k=>{if(k in value)photoValue(value[k],out,depth+1)});
+  }
+}
+function imageList(item){
+  const raw=[];photoValue(item,raw);
+  return [...new Set(raw)].slice(0,40);
+}
+function deliveryUrls(raw){
+  const url=normalizeImageUrl(raw);if(!url)return[];
+  const values=[];
+  if(CAN_PROXY_IMAGES)values.push('/api/image?url='+encodeURIComponent(url));
+  values.push(url);
+  return [...new Set(values)];
+}
+function loadImageElement(img,item){
+  const raws=imageList(item);const token=String(Date.now())+Math.random();img.dataset.loadToken=token;
+  const candidates=raws.flatMap(deliveryUrls);let at=0;
+  const next=()=>{
+    if(img.dataset.loadToken!==token)return;
+    if(at>=candidates.length){img.removeAttribute('src');img.classList.remove('loaded');return}
+    const candidate=candidates[at++];
+    img.onload=()=>{if(img.dataset.loadToken===token)img.classList.add('loaded')};
+    img.onerror=next;
+    img.src=candidate;
+  };
+  img.alt=(item&&(item.address||item.title))||'Property';next();
+}
+function makeLandingFrames(items){
+  const lists=items.map(item=>({item,images:imageList(item)})).filter(row=>row.images.length);
+  const frames=[];
+  for(let depth=0;depth<40;depth++){
+    for(const row of lists){if(row.images[depth])frames.push({item:row.item,url:row.images[depth]});if(frames.length>=320)return frames}
+  }
+  return frames;
+}
 function captionFor(item){const parts=[];if(item&&(item.address||item.title))parts.push(item.address||item.title);if(item&&Number(item.price)>0)parts.push(money(item.price));return parts.join(' · ')}
-function swapLanding(frame,immediate=false){if(!frame||!frame.url)return;const token=++landingSwapToken;const next=flip?$('landA'):$('landB'),old=flip?$('landB'):$('landA');const preload=new Image();preload.decoding='async';preload.onload=()=>{if(token!==landingSwapToken)return;next.src=frame.url;next.alt=frame.item.address||frame.item.title||'Property';if(immediate){next.style.transition='none';next.classList.add('on');old.classList.remove('on');requestAnimationFrame(()=>next.style.transition='')}else{requestAnimationFrame(()=>{next.classList.add('on');old.classList.remove('on')})}$('photoCaption').textContent=captionFor(frame.item);flip=!flip};preload.onerror=()=>{if(token===landingSwapToken)advanceLanding()};preload.src=frame.url}
+function preloadFrame(frame,success,failure){
+  const candidates=deliveryUrls(frame.url);let at=0;const probe=new Image();probe.decoding='async';
+  const next=()=>{if(at>=candidates.length){failure();return}const candidate=candidates[at++];probe.onload=()=>success(candidate);probe.onerror=next;probe.src=candidate};next();
+}
+function swapLanding(frame,immediate=false){
+  if(!frame||!frame.url)return;
+  const token=++landingSwapToken;
+  preloadFrame(frame,resolved=>{
+    if(token!==landingSwapToken)return;
+    landingFailures=0;
+    const next=flip?$('landA'):$('landB'),old=flip?$('landB'):$('landA');
+    next.src=resolved;next.alt=frame.item.address||frame.item.title||'Property';
+    if(immediate){next.style.transition='none';next.classList.add('on');old.classList.remove('on');requestAnimationFrame(()=>next.style.transition='')}
+    else{requestAnimationFrame(()=>{next.classList.add('on');old.classList.remove('on')})}
+    $('photoCaption').textContent=captionFor(frame.item);flip=!flip;
+  },()=>{
+    if(token!==landingSwapToken)return;
+    landingFailures+=1;
+    if(landingFailures>=landingFrames.length){$('photoCaption').textContent='property photography unavailable';return}
+    setTimeout(advanceLanding,80);
+  });
+}
 function advanceLanding(){if(plate!=='landing'||!landingFrames.length)return;const frame=landingFrames[landingFrameIndex%landingFrames.length];landingFrameIndex=(landingFrameIndex+1)%landingFrames.length;swapLanding(frame)}
 function startLandingRotation(){clearInterval(timer);timer=setInterval(advanceLanding,5200)}
 function fit(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,180)+'px'}
 function errorMessage(message){document.querySelectorAll('.error').forEach(x=>x.remove());const node=document.createElement('div');node.className='error';node.textContent=message;document.body.appendChild(node);setTimeout(()=>node.remove(),5200)}
-async function postSearch(text,k){const r=await fetch(api('/field/v1/search'),{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({text,k})});if(!r.ok){let detail='';try{detail=(await r.json()).error||''}catch{}throw new Error(detail||'property field unavailable')}const d=await r.json();const rows=d.results||d.matches||d.items||[];if(!rows.length)throw new Error('no property results');return {data:d,rows}}
-async function hydrateLanding(){try{const {rows}=await postSearch('home residence architecture natural light views neighborhood garden character',96);const usable=rows.filter(x=>imageList(x).length);if(!usable.length)throw new Error('property images unavailable');landingItems=usable;landingFrames=makeLandingFrames(usable);landingFrameIndex=0;swapLanding(landingFrames[0],true);landingFrameIndex=1;startLandingRotation()}catch(err){$('landingCount').textContent='property field offline';$('photoCaption').textContent='';errorMessage(err.message||'property field unavailable')}}
-async function manifest(){try{const r=await fetch(api('/field/v1/manifest'),{cache:'no-store'});if(!r.ok)throw new Error('property field unavailable');const d=await r.json();const n=Number(d.count||0);if(n<100)throw new Error('property field incomplete');$('landingCount').textContent=n.toLocaleString('en-US')+' properties'}catch(err){$('landingCount').textContent='property field offline'}}
-async function search(q){if(searching)return;searching=true;searchStarted=performance.now();show('measure');$('measureQuery').textContent=q;const measureItem=landingItems[(landingFrameIndex||0)%Math.max(landingItems.length,1)];setImage($('measureImage'),measureItem);elapsedTimer=setInterval(()=>{$('elapsed').textContent=((performance.now()-searchStarted)/1000).toFixed(1)+'s'},100);try{const {rows}=await postSearch(q,24);results=rows;index=0;render();show('result')}catch(err){show('landing');errorMessage(err.message||'property field unavailable')}finally{clearInterval(elapsedTimer);searching=false}}
-function render(){const x=results[index];if(!x)return;setImage($('resultImage'),x);$('position').textContent=String(index+1).padStart(2,'0')+' / '+String(results.length).padStart(2,'0');$('scoreLine').style.display='block';$('score').textContent=Number.isFinite(Number(x.score))?Number(x.score).toFixed(3):'—';$('price').textContent=money(x.price);$('address').textContent=x.address||x.title||'Property';const facts=[];if(x.bedrooms!=null)facts.push(x.bedrooms+' beds');if(x.bathrooms!=null)facts.push(x.bathrooms+' baths');if(x.squareFeet)facts.push(Number(x.squareFeet).toLocaleString('en-US')+' sqft');if(x.propertyType)facts.push(x.propertyType);if(x.status||x.availability)facts.push(x.status||x.availability);$('facts').innerHTML=facts.map(v=>'<span>'+esc(v)+'</span>').join('');$('remarks').textContent=x.overview||x.remarks||'';const url=x.externalUrl||x.url||'#';$('openListing').href=url;$('openListing').style.display=url==='#'?'none':'inline-block';$('resultCount').textContent=results.length+' results';$('tiles').innerHTML=results.map((r,i)=>{const image=imageOf(r);return '<button class="tile '+(i===index?'on':'')+'" data-i="'+i+'">'+(image?'<img src="'+attr(image)+'" alt="">':'')+'<span>'+String(i+1).padStart(2,'0')+'</span></button>'}).join('');$('tiles').querySelectorAll('.tile').forEach(b=>b.onclick=()=>{index=Number(b.dataset.i);render()});const on=$('tiles').querySelector('.tile.on');if(on)on.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})}
-function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function attr(v){return esc(v)}
+async function postSearch(text,k){
+  const r=await fetch(api('/field/v1/search'),{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({text,k})});
+  if(!r.ok){let detail='';try{const body=await r.json();detail=body.error||body.detail||''}catch{}throw new Error(detail||'property field unavailable')}
+  const d=await r.json();const rows=d.results||d.matches||d.items||[];if(!rows.length)throw new Error('no property results');return{data:d,rows};
+}
+async function hydrateLanding(){
+  try{
+    const {rows}=await postSearch('home residence architecture natural light views neighborhood garden character',128);
+    const usable=rows.filter(x=>imageList(x).length);
+    if(!usable.length)throw new Error('property records contain no photography');
+    landingItems=usable;landingFrames=makeLandingFrames(usable);landingFrameIndex=0;landingFailures=0;
+    swapLanding(landingFrames[0],true);landingFrameIndex=1;startLandingRotation();
+  }catch(err){$('photoCaption').textContent='';errorMessage(err.message||'property images unavailable')}
+}
+async function manifest(){
+  try{const r=await fetch(api('/field/v1/manifest'),{cache:'no-store'});if(!r.ok)throw new Error('property field unavailable');const d=await r.json();const n=Number(d.count||0);if(n<100)throw new Error('property field incomplete');$('landingCount').textContent=n.toLocaleString('en-US')+' properties'}
+  catch(err){$('landingCount').textContent='property field offline';errorMessage(err.message||'property field unavailable')}
+}
+async function search(q){
+  if(searching)return;searching=true;searchStarted=performance.now();show('measure');$('measureQuery').textContent=q;
+  const measureItem=landingItems[(landingFrameIndex||0)%Math.max(landingItems.length,1)];loadImageElement($('measureImage'),measureItem);
+  elapsedTimer=setInterval(()=>{$('elapsed').textContent=((performance.now()-searchStarted)/1000).toFixed(1)+'s'},100);
+  try{const {rows}=await postSearch(q,24);results=rows;index=0;render();show('result')}
+  catch(err){show('landing');errorMessage(err.message||'property field unavailable')}
+  finally{clearInterval(elapsedTimer);searching=false}
+}
+function render(){
+  const x=results[index];if(!x)return;loadImageElement($('resultImage'),x);
+  $('position').textContent=String(index+1).padStart(2,'0')+' / '+String(results.length).padStart(2,'0');
+  $('scoreLine').style.display='block';$('score').textContent=Number.isFinite(Number(x.score))?Number(x.score).toFixed(3):'—';
+  $('price').textContent=money(x.price);$('address').textContent=x.address||x.title||'Property';
+  const facts=[];if(x.bedrooms!=null)facts.push(x.bedrooms+' beds');if(x.bathrooms!=null)facts.push(x.bathrooms+' baths');if(x.squareFeet)facts.push(Number(x.squareFeet).toLocaleString('en-US')+' sqft');if(x.propertyType)facts.push(x.propertyType);if(x.status||x.availability)facts.push(x.status||x.availability);
+  $('facts').innerHTML=facts.map(v=>'<span>'+esc(v)+'</span>').join('');$('remarks').textContent=x.overview||x.remarks||'';
+  const url=x.externalUrl||x.url||'#';$('openListing').href=url;$('openListing').style.display=url==='#'?'none':'inline-block';$('resultCount').textContent=results.length+' results';
+  const tiles=$('tiles');tiles.innerHTML='';
+  results.forEach((row,i)=>{const button=document.createElement('button');button.className='tile '+(i===index?'on':'');button.dataset.i=String(i);const img=document.createElement('img');img.alt='';button.appendChild(img);const label=document.createElement('span');label.textContent=String(i+1).padStart(2,'0');button.appendChild(label);button.onclick=()=>{index=i;render()};tiles.appendChild(button);loadImageElement(img,row)});
+  const on=tiles.querySelector('.tile.on');if(on)on.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function home(){show('landing');setTimeout(()=>$('query').focus(),0)}
 $('landingForm').onsubmit=e=>{e.preventDefault();const q=$('query').value.trim();if(q)search(q)};
 $('query').oninput=e=>fit(e.target);
 $('query').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('landingForm').requestSubmit()}});
 document.querySelectorAll('.prompt').forEach(button=>button.addEventListener('click',()=>{$('query').value=button.textContent.trim();fit($('query'));$('landingForm').requestSubmit()}));
-$('landingBrand').onclick=home;$('measureBrand').onclick=home;$('resultBrand').onclick=home;$('newSearch').onclick=home;$('prev').onclick=()=>{if(!results.length)return;index=(index-1+results.length)%results.length;render()};$('next').onclick=()=>{if(!results.length)return;index=(index+1)%results.length;render()};window.addEventListener('keydown',e=>{if(plate==='result'&&e.key==='ArrowRight')$('next').click();if(plate==='result'&&e.key==='ArrowLeft')$('prev').click();if(e.key==='Escape')home()});
+$('landingBrand').onclick=home;$('measureBrand').onclick=home;$('resultBrand').onclick=home;$('newSearch').onclick=home;$('prev').onclick=()=>{if(!results.length)return;index=(index-1+results.length)%results.length;render()};$('next').onclick=()=>{if(!results.length)return;index=(index+1)%results.length;render()};
+window.addEventListener('keydown',e=>{if(plate==='result'&&e.key==='ArrowRight')$('next').click();if(plate==='result'&&e.key==='ArrowLeft')$('prev').click();if(e.key==='Escape')home()});
+window.addEventListener('unhandledrejection',e=>errorMessage((e.reason&&e.reason.message)||'request failed'));
 $('landingCount').textContent='connecting';manifest();hydrateLanding();
 </script>
 </body>

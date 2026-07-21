@@ -5,28 +5,19 @@
   "outputDirectory": "public",
   "cleanUrls": true,
   "functions": {
-    "api/field/[...path].js": {
-      "maxDuration": 60
-    }
+    "api/field/[...path].js": { "maxDuration": 60 },
+    "api/image.js": { "maxDuration": 30 },
+    "api/health.js": { "maxDuration": 30 }
   },
   "rewrites": [
-    {
-      "source": "/field/:path*",
-      "destination": "/api/field/:path*"
-    }
+    { "source": "/field/:path*", "destination": "/api/field/:path*" }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     }
   ]

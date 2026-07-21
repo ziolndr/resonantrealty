@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import html
 import json
 import os
 import re
@@ -156,42 +157,76 @@ def address_from(record: dict[str, Any]) -> tuple[str, str, str, str]:
     return full or "Address withheld", city, state, postal
 
 
+def canonical_photo_url(value: Any) -> str:
+    text = clean(value)
+    if not text:
+        return ""
+    text = html.unescape(text).strip().strip('"\'')
+    if text.startswith("//"):
+        text = "https:" + text
+    elif text.lower().startswith("http://"):
+        text = "https://" + text[7:]
+    if not text.lower().startswith("https://"):
+        return ""
+    try:
+        parsed = urllib.parse.urlsplit(text)
+    except ValueError:
+        return ""
+    if not parsed.netloc:
+        return ""
+    return urllib.parse.urlunsplit(("https", parsed.netloc, parsed.path, parsed.query, ""))
+
+
+def photo_urls(value: Any, depth: int = 0) -> Iterator[str]:
+    if depth > 5 or value is None:
+        return
+    if isinstance(value, str):
+        url = canonical_photo_url(value)
+        if url:
+            yield url
+        return
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            yield from photo_urls(item, depth + 1)
+        return
+    if not isinstance(value, dict):
+        return
+
+    direct_keys = (
+        "MediaURL", "MediaUrl", "imageUrl", "image_url", "primary_photo",
+        "primaryPhoto", "photoUrl", "photo_url", "href", "src", "uri", "Uri",
+        "original", "large", "highRes", "high_res",
+    )
+    nested_keys = (
+        "photos", "Images", "images", "imageUrls", "image_urls", "Media", "media",
+        "alt_photos", "altPhotos", "description", "sizes", "variants",
+    )
+    for key in direct_keys:
+        if key in value:
+            yield from photo_urls(value.get(key), depth + 1)
+    for key in nested_keys:
+        if key in value:
+            yield from photo_urls(value.get(key), depth + 1)
+
+
 def collect_photos(record: dict[str, Any]) -> list[str]:
-    candidates: list[Any] = []
-    candidates.extend(as_list(first(record, "photos", "Images", "imageUrls", default=[])))
-    candidates.extend(as_list(first(record, "Media", "media", default=[])))
-    primary = first(record, "imageUrl", "description.primary_photo", "primary_photo", "PrimaryPhotoURL", "PhotoURL", "thumbnail")
-    candidates.extend(as_list(first(record, "description.alt_photos", "alt_photos", default=[])))
-    if primary:
-        candidates.insert(0, primary)
+    candidates: list[Any] = [
+        first(record, "description.primary_photo", "primary_photo", "imageUrl", "image_url", "PrimaryPhotoURL", "PhotoURL", "thumbnail"),
+        first(record, "description.alt_photos", "alt_photos", "altPhotos", default=[]),
+        first(record, "photos", "Images", "images", "imageUrls", "image_urls", default=[]),
+        first(record, "Media", "media", default=[]),
+    ]
 
-    rows: list[tuple[int, str]] = []
-    for idx, item in enumerate(candidates):
-        order = idx
-        url = ""
-        if isinstance(item, str):
-            url = item
-        elif isinstance(item, dict):
-            url = clean(first(item, "MediaURL", "MediaUrl", "url", "href", "Uri", "uri", "imageUrl"))
-            order_val = number(first(item, "Order", "order", "MediaOrder", "Sequence"))
-            if isinstance(order_val, (int, float)):
-                order = int(order_val)
-        url = clean(url)
-        if url.startswith("//"):
-            url = "https:" + url
-        if url.startswith("http://") or url.startswith("https://"):
-            rows.append((order, url))
-
-    rows.sort(key=lambda pair: pair[0])
     out: list[str] = []
     seen: set[str] = set()
-    for _, url in rows:
-        if url in seen:
-            continue
-        seen.add(url)
-        out.append(url)
-        if len(out) >= 40:
-            break
+    for candidate in candidates:
+        for url in photo_urls(candidate):
+            if url in seen:
+                continue
+            seen.add(url)
+            out.append(url)
+            if len(out) >= 40:
+                return out
     return out
 
 
