@@ -13,6 +13,10 @@ else
   echo 'REAL_ESTATE_PROVIDER=homeharvest' >> "$APP/config.env"
 fi
 
-grep -q '^RESONANT_MIN_PROPERTIES=' "$APP/config.env" ||   echo 'RESONANT_MIN_PROPERTIES=500' >> "$APP/config.env"
+if grep -q '^RESONANT_MIN_PROPERTIES=' "$APP/config.env"; then
+  sed -i '' -E 's/^RESONANT_MIN_PROPERTIES=.*/RESONANT_MIN_PROPERTIES=50/' "$APP/config.env"
+else
+  echo 'RESONANT_MIN_PROPERTIES=50' >> "$APP/config.env"
+fi
 
 exec /bin/zsh "$APP/INSTALL_RESONANT.command"

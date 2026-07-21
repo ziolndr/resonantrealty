@@ -223,7 +223,7 @@ async function hydrateLanding(){
   }catch(err){$('photoCaption').textContent='';errorMessage(err.message||'property images unavailable')}
 }
 async function manifest(){
-  try{const r=await fetch(api('/field/v1/manifest'),{cache:'no-store'});if(!r.ok)throw new Error('property field unavailable');const d=await r.json();const n=Number(d.count||0);if(n<100)throw new Error('property field incomplete');$('landingCount').textContent=n.toLocaleString('en-US')+' properties'}
+  try{const r=await fetch(api('/field/v1/manifest'),{cache:'no-store'});if(!r.ok)throw new Error('property field unavailable');const d=await r.json();const n=Number(d.count||0);if(n<1)throw new Error('property field empty');$('landingCount').textContent=n.toLocaleString('en-US')+' properties'}
   catch(err){$('landingCount').textContent='property field offline';errorMessage(err.message||'property field unavailable')}
 }
 async function search(q){

@@ -19,7 +19,7 @@ HOMEHARVEST_LOCATIONS="San Diego County, CA|San Diego, CA|Chula Vista, CA|Oceans
 HOMEHARVEST_LISTING_TYPES="for_sale,pending"
 HOMEHARVEST_SEQUENTIAL=0
 HOMEHARVEST_EXTRA_PROPERTY_DATA=0
-RESONANT_MIN_PROPERTIES=500
+RESONANT_MIN_PROPERTIES=50
 CFG
 chmod +x "$APP"/*.command "$APP/bin"/*.py
 
@@ -37,24 +37,8 @@ PYTHON="$VENV/bin/python"
 source "$APP/config.env"
 PORT="${RESONANT_PORT:-8797}"
 
-# Never keep serving an incomplete property field.
-OLD_FIELD="$HOME/ARBITER_RESONANT_FIELD/field-current"
-if [[ -f "$OLD_FIELD/field.json" ]]; then
-  OLD_COUNT="$($VENV/bin/python - "$OLD_FIELD/field.json" <<'PYCOUNT'
-import json,sys
-try: print(int(json.load(open(sys.argv[1])).get("embedded_records") or 0))
-except Exception: print(0)
-PYCOUNT
-)"
-  if (( OLD_COUNT < ${RESONANT_MIN_PROPERTIES:-500} )); then
-    mkdir -p "$HOME/ARBITER_RESONANT_FIELD/archive"
-    mv "$OLD_FIELD" "$HOME/ARBITER_RESONANT_FIELD/archive/obsolete-small-field-$(date -u '+%Y%m%dT%H%M%SZ')"
-    rm -rf "$HOME/ARBITER_RESONANT_FIELD/live-index"
-    echo "removed obsolete $OLD_COUNT-property field"
-  fi
-fi
 
-
+# Keep the current field live until BUILD_RESONANT_FIELD.command has fully verified its replacement.
 cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

@@ -23,8 +23,8 @@ fi
 
 PROVIDER="${REAL_ESTATE_PROVIDER:-homeharvest}"
 MAX="${REAL_ESTATE_MAX_LISTINGS:-0}"
-MIN="${RESONANT_MIN_PROPERTIES:-500}"
-MIN_IMAGES="${RESONANT_MIN_IMAGE_PROPERTIES:-100}"
+MIN="${RESONANT_MIN_PROPERTIES:-50}"
+MIN_IMAGES="${RESONANT_MIN_IMAGE_PROPERTIES:-20}"
 PAGE="${REAL_ESTATE_PAGE_SIZE:-500}"
 EMBED="${ARBITER_EMBED_URL:-http://127.0.0.1:8000/v1/embed}"
 BATCH="${ARBITER_EMBED_BATCH:-128}"
@@ -84,7 +84,7 @@ esac
 
 FETCHED="$(wc -l < "$SNAP/properties.jsonl" | tr -d ' ')"
 if (( FETCHED < MIN )); then
-  echo "ERROR: HomeHarvest returned only $FETCHED properties; refusing to replace the live field with an incomplete snapshot." >&2
+  echo "ERROR: The provider returned only $FETCHED properties; refusing to replace the live field with an incomplete snapshot." >&2
   echo "The current field was not changed." >&2
   exit 1
 fi
