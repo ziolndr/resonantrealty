@@ -1,0 +1,14 @@
+.git
+.github
+venv
+.venv
+state
+snapshots
+field-current
+field-next-*
+live-index
+archive
+*.sqlite3
+*.f32
+*.jsonl
+*.jsonl.gz
