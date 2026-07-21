@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080808">
+<title>RESONANT</title>
+<meta name="description" content="Properties ranked by resonance.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--bg:#080808;--white:#f4f3ef;--dim:rgba(244,243,239,.62);--faint:rgba(244,243,239,.34);--line:rgba(244,243,239,.22);--pad:clamp(18px,2.7vw,46px);--mono:'DM Mono',ui-monospace,Menlo,monospace;--serif:'Instrument Serif',Georgia,serif}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--white);font-family:var(--mono)}
+button,textarea{font:inherit;color:inherit;border:0;background:none}button{cursor:pointer}a{color:inherit;text-decoration:none}
+:focus-visible{outline:1px solid var(--white);outline-offset:4px}
+.screen{position:fixed;inset:0;display:none;background:var(--bg)}.screen.on{display:block}
+.bed{position:absolute;inset:0;overflow:hidden;background:radial-gradient(120% 90% at 70% 35%,#282826 0%,#111 48%,#080808 100%)}
+.bed img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;opacity:0;transition:opacity 1.05s ease;filter:none;transform:none;image-rendering:auto}
+.bed img.on{opacity:1}
+.bed:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.48) 0%,rgba(0,0,0,.02) 31%,rgba(0,0,0,.13) 58%,rgba(0,0,0,.88) 100%),linear-gradient(90deg,rgba(0,0,0,.66) 0%,rgba(0,0,0,.18) 45%,rgba(0,0,0,0) 72%)}
+.brand{position:absolute;z-index:10;top:var(--pad);left:var(--pad);font-family:var(--serif);font-size:clamp(30px,3vw,48px);line-height:.8;letter-spacing:.04em;text-transform:uppercase;text-shadow:0 2px 24px rgba(0,0,0,.42)}
+.count{position:absolute;z-index:10;top:var(--pad);right:var(--pad);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);font-variant-numeric:tabular-nums;text-shadow:0 2px 14px #000}
+.landing-copy{position:absolute;z-index:10;left:var(--pad);bottom:clamp(190px,25vh,260px);width:min(760px,66vw);text-shadow:0 4px 36px rgba(0,0,0,.72)}
+.landing-kicker{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--dim);margin-bottom:14px}
+.landing-copy h1{font-family:var(--serif);font-size:clamp(58px,8vw,132px);line-height:.79;letter-spacing:-.035em;font-weight:400;text-wrap:balance}
+.landing-copy p:last-child{margin-top:18px;font-family:var(--serif);font-size:clamp(18px,1.7vw,28px);line-height:1.2;color:rgba(244,243,239,.82)}
+.landing-compose{position:absolute;z-index:10;left:var(--pad);right:var(--pad);bottom:var(--pad);max-width:1040px}
+.landing-form{display:flex;align-items:flex-end;gap:12px}
+.search-box{flex:1;display:flex;align-items:flex-end;background:rgba(7,7,7,.7);backdrop-filter:blur(12px) saturate(1.04);border:1px solid rgba(255,255,255,.34);min-height:72px;padding:14px 16px}
+#query{width:100%;min-height:1.2em;max-height:5em;resize:none;overflow:hidden;font-family:var(--serif);font-size:clamp(25px,2.6vw,43px);line-height:1.08;caret-color:var(--white);outline:0}
+#query::placeholder{color:rgba(244,243,239,.72)}
+.go{width:72px;height:72px;flex:0 0 72px;background:var(--white);color:#080808;display:grid;place-items:center;font-size:22px;transition:opacity .2s}.go:hover{opacity:.78}
+.prompt-rail{display:flex;gap:20px;align-items:center;margin-top:12px;min-width:0;overflow-x:auto;scrollbar-width:none}.prompt-rail::-webkit-scrollbar{display:none}
+.prompt-label{flex:0 0 auto;font-size:9px;letter-spacing:.19em;text-transform:uppercase;color:var(--faint)}
+.prompt{flex:0 0 auto;font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);white-space:nowrap;text-align:left}.prompt:hover{color:var(--white)}
+.photo-caption{position:absolute;z-index:9;right:var(--pad);bottom:var(--pad);max-width:34vw;text-align:right;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);text-shadow:0 2px 14px #000}
+/* Measure */
+#measure .bed:after{background:linear-gradient(180deg,rgba(0,0,0,.56),rgba(0,0,0,.16) 45%,rgba(0,0,0,.78))}
+.measuring{position:absolute;z-index:10;inset:0;display:grid;place-items:center;padding:var(--pad);text-align:center}
+.measuring div{font-family:var(--serif);font-size:clamp(32px,5vw,82px);line-height:.95;max-width:18ch;text-wrap:balance}
+.measure-meta{position:absolute;z-index:10;left:var(--pad);right:var(--pad);bottom:var(--pad);display:flex;justify-content:space-between;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.progress{position:absolute;z-index:10;left:var(--pad);right:var(--pad);bottom:calc(var(--pad) + 26px);height:1px;background:var(--line);overflow:hidden}.progress:after{content:"";position:absolute;left:-25%;width:25%;height:100%;background:var(--white);animation:run 1.2s linear infinite}@keyframes run{to{left:100%}}
+/* Results */
+#result .bed:after{background:linear-gradient(180deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,0) 34%,rgba(0,0,0,.12) 54%,rgba(0,0,0,.92) 100%),linear-gradient(90deg,rgba(0,0,0,.5),rgba(0,0,0,0) 48%)}
+.result-top{position:absolute;z-index:12;top:var(--pad);left:var(--pad);right:var(--pad);display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.result-top .brand{position:static}
+.nav{display:flex;align-items:center;gap:8px}.position{font-size:10px;letter-spacing:.16em;color:var(--dim);min-width:70px;text-align:right}.nav button{width:38px;height:38px;border:1px solid var(--line);display:grid;place-items:center;background:rgba(0,0,0,.24)}.nav button:hover{background:var(--white);color:#080808}
+.result-bottom{position:absolute;z-index:12;left:var(--pad);right:var(--pad);bottom:var(--pad);display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,45vw);align-items:end;gap:36px}
+.property{max-width:760px;text-shadow:0 3px 28px rgba(0,0,0,.72)}
+.resonance{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}.resonance b{color:var(--white);font-weight:400}
+.price{font-family:var(--serif);font-size:clamp(34px,4.6vw,78px);line-height:.84;letter-spacing:-.02em}
+.address{margin-top:14px;font-family:var(--serif);font-size:clamp(21px,2.1vw,34px);line-height:1.05;max-width:30ch}
+.facts{margin-top:13px;display:flex;flex-wrap:wrap;gap:9px 18px;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
+.remarks{margin-top:16px;max-width:55ch;font-family:var(--serif);font-size:clamp(16px,1.25vw,21px);line-height:1.35;color:rgba(244,243,239,.82);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.actions{margin-top:18px;display:flex;gap:8px}.actions a,.actions button{padding:11px 14px;border:1px solid var(--line);font-size:9px;letter-spacing:.16em;text-transform:uppercase;background:rgba(0,0,0,.22)}.actions a:hover,.actions button:hover{background:var(--white);color:#080808}
+.deck{min-width:0}.deck-head{display:flex;justify-content:space-between;margin-bottom:9px;font-size:9px;letter-spacing:.17em;text-transform:uppercase;color:var(--dim)}
+.tiles{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;scroll-snap-type:x proximity}.tiles::-webkit-scrollbar{display:none}
+.tile{position:relative;flex:0 0 clamp(82px,7vw,116px);aspect-ratio:4/3;overflow:hidden;border:1px solid transparent;opacity:.5;scroll-snap-align:start}.tile:hover{opacity:.82}.tile.on{opacity:1;border-color:var(--white)}.tile img{width:100%;height:100%;object-fit:cover;filter:none;transform:none}.tile span{position:absolute;top:5px;left:6px;font-size:8px;text-shadow:0 1px 5px #000}
+/* Error */
+.error{position:absolute;z-index:20;left:50%;bottom:24px;translate:-50% 0;padding:11px 14px;background:var(--white);color:#080808;font-size:9px;letter-spacing:.12em;text-transform:uppercase;max-width:calc(100vw - 36px);text-align:center}
+@media(max-width:820px){
+  :root{--pad:16px}.count{top:20px;font-size:8px}.brand{font-size:30px}.landing-copy{left:var(--pad);right:var(--pad);bottom:190px;width:auto}.landing-kicker{font-size:8px;margin-bottom:10px}.landing-copy h1{font-size:clamp(52px,16vw,82px);line-height:.82}.landing-copy p:last-child{font-size:18px;margin-top:12px}.landing-compose{bottom:calc(var(--pad) + env(safe-area-inset-bottom));}.landing-form{gap:8px}.search-box{min-height:60px;padding:12px 13px}#query{font-size:25px}.go{width:60px;height:60px;flex-basis:60px}.prompt-rail{gap:16px;margin-top:10px}.prompt{font-size:8px}.photo-caption{display:none}
+  .result-bottom{display:flex;flex-direction:column;align-items:stretch;gap:20px;max-height:72vh;overflow-y:auto;padding-top:120px}.property{max-width:none}.price{font-size:48px}.address{font-size:25px}.remarks{-webkit-line-clamp:2}.deck{width:100%;padding-bottom:calc(env(safe-area-inset-bottom) + 2px)}.tile{flex-basis:88px}.result-top{align-items:center}.position{display:none}
+}
+@media(max-width:470px){.count{max-width:48vw;text-align:right}.landing-copy{bottom:178px}.landing-copy h1{font-size:50px}.landing-copy p:last-child{font-size:16px;max-width:26ch}.prompt-rail .prompt:nth-of-type(n+3){display:none}.facts{gap:7px 12px}.actions{display:grid;grid-template-columns:1fr}.actions a,.actions button{text-align:center}.result-bottom{bottom:12px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<section class="screen on" id="landing">
+  <div class="bed"><img id="landA" class="on" alt=""><img id="landB" alt=""></div>
+  <button class="brand" id="landingBrand" type="button">Resonant</button>
+  <div class="count" id="landingCount">properties</div>
+  <div class="landing-copy">
+    <p class="landing-kicker">Real property search</p>
+    <h1>Find the place<br>you mean.</h1>
+    <p>Real properties ranked against the whole thought.</p>
+  </div>
+  <div class="landing-compose">
+    <form class="landing-form" id="landingForm">
+      <div class="search-box"><textarea id="query" rows="1" spellcheck="false" autocomplete="off" enterkeyhint="search" placeholder="A quiet historic home with canyon views and room for music"></textarea></div>
+      <button class="go" type="submit" aria-label="Search">→</button>
+    </form>
+    <div class="prompt-rail" aria-label="Example searches">
+      <span class="prompt-label">Try</span>
+      <button class="prompt" type="button">historic character near Balboa Park</button>
+      <button class="prompt" type="button">privacy, land, and room for family</button>
+      <button class="prompt" type="button">bright, walkable, and close to coffee</button>
+    </div>
+  </div>
+  <div class="photo-caption" id="photoCaption"></div>
+</section>
+<section class="screen" id="measure">
+  <div class="bed"><img id="measureImage" class="on" alt=""></div>
+  <button class="brand" id="measureBrand" type="button">Resonant</button>
+  <div class="measuring"><div id="measureQuery"></div></div>
+  <div class="progress"></div>
+  <div class="measure-meta"><span>measuring properties</span><span id="elapsed">0.0s</span></div>
+</section>
+<section class="screen" id="result">
+  <div class="bed"><img id="resultImage" class="on" alt=""></div>
+  <header class="result-top">
+    <button class="brand" id="resultBrand" type="button">Resonant</button>
+    <div class="nav"><span class="position" id="position">01 / 10</span><button id="prev" type="button" aria-label="Previous">←</button><button id="next" type="button" aria-label="Next">→</button></div>
+  </header>
+  <div class="result-bottom">
+    <article class="property">
+      <div class="resonance" id="scoreLine">resonance <b id="score">—</b></div>
+      <div class="price" id="price">—</div>
+      <div class="address" id="address">—</div>
+      <div class="facts" id="facts"></div>
+      <div class="remarks" id="remarks"></div>
+      <div class="actions"><a id="openListing" href="#" target="_blank" rel="noopener">open listing ↗</a><button id="newSearch" type="button">new search</button></div>
+    </article>
+    <aside class="deck"><div class="deck-head"><span>ranked properties</span><span id="resultCount"></span></div><div class="tiles" id="tiles"></div></aside>
+  </div>
+</section>
+<script>
+const $=id=>document.getElementById(id);
+const params=new URLSearchParams(location.search);
+const configured=(params.get('api')||'').replace(/\/+$/,'');
+const API_BASE=configured||(location.protocol==='file:'?'http://127.0.0.1:8797':'');
+const api=path=>API_BASE+path;
+let plate='landing',results=[],index=0,flip=false,timer=null,searchStarted=0,elapsedTimer=null,searching=false;
+let landingItems=[],landingFrames=[],landingFrameIndex=0,landingSwapToken=0;
+function show(id){document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id===id));plate=id}
+function money(v){const n=Number(v);return Number.isFinite(n)&&n>0?'$'+Math.round(n).toLocaleString('en-US'):'Price on request'}
+function imageOf(x){return x&&(x.imageUrl||x.backdropPath||x.posterPath||(Array.isArray(x.images)&&x.images[0]))||''}
+function imageList(x){if(!x)return[];const raw=[x.imageUrl,x.backdropPath,x.posterPath,...(Array.isArray(x.images)?x.images:[]),x.imageFallback];return [...new Set(raw.filter(v=>typeof v==='string'&&/^https?:\/\//i.test(v)))].slice(0,8)}
+function setImage(img,item){const url=imageOf(item);img.onerror=()=>{if(item&&item.imageFallback&&img.src!==item.imageFallback)img.src=item.imageFallback};if(url){img.src=url;img.alt=item.address||item.title||'Property'}else{img.removeAttribute('src');img.alt=''}}
+function makeLandingFrames(items){const lists=items.filter(x=>imageList(x).length).map(item=>({item,images:imageList(item)}));const frames=[];for(let depth=0;depth<8;depth++){for(const row of lists){if(row.images[depth])frames.push({item:row.item,url:row.images[depth]});if(frames.length>=160)return frames}}return frames}
+function captionFor(item){const parts=[];if(item&&(item.address||item.title))parts.push(item.address||item.title);if(item&&Number(item.price)>0)parts.push(money(item.price));return parts.join(' · ')}
+function swapLanding(frame,immediate=false){if(!frame||!frame.url)return;const token=++landingSwapToken;const next=flip?$('landA'):$('landB'),old=flip?$('landB'):$('landA');const preload=new Image();preload.decoding='async';preload.onload=()=>{if(token!==landingSwapToken)return;next.src=frame.url;next.alt=frame.item.address||frame.item.title||'Property';if(immediate){next.style.transition='none';next.classList.add('on');old.classList.remove('on');requestAnimationFrame(()=>next.style.transition='')}else{requestAnimationFrame(()=>{next.classList.add('on');old.classList.remove('on')})}$('photoCaption').textContent=captionFor(frame.item);flip=!flip};preload.onerror=()=>{if(token===landingSwapToken)advanceLanding()};preload.src=frame.url}
+function advanceLanding(){if(plate!=='landing'||!landingFrames.length)return;const frame=landingFrames[landingFrameIndex%landingFrames.length];landingFrameIndex=(landingFrameIndex+1)%landingFrames.length;swapLanding(frame)}
+function startLandingRotation(){clearInterval(timer);timer=setInterval(advanceLanding,5200)}
+function fit(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,180)+'px'}
+function errorMessage(message){document.querySelectorAll('.error').forEach(x=>x.remove());const node=document.createElement('div');node.className='error';node.textContent=message;document.body.appendChild(node);setTimeout(()=>node.remove(),5200)}
+async function postSearch(text,k){const r=await fetch(api('/field/v1/search'),{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({text,k})});if(!r.ok){let detail='';try{detail=(await r.json()).error||''}catch{}throw new Error(detail||'property field unavailable')}const d=await r.json();const rows=d.results||d.matches||d.items||[];if(!rows.length)throw new Error('no property results');return {data:d,rows}}
+async function hydrateLanding(){try{const {rows}=await postSearch('home residence architecture natural light views neighborhood garden character',96);const usable=rows.filter(x=>imageList(x).length);if(!usable.length)throw new Error('property images unavailable');landingItems=usable;landingFrames=makeLandingFrames(usable);landingFrameIndex=0;swapLanding(landingFrames[0],true);landingFrameIndex=1;startLandingRotation()}catch(err){$('landingCount').textContent='property field offline';$('photoCaption').textContent='';errorMessage(err.message||'property field unavailable')}}
+async function manifest(){try{const r=await fetch(api('/field/v1/manifest'),{cache:'no-store'});if(!r.ok)throw new Error('property field unavailable');const d=await r.json();const n=Number(d.count||0);if(n<100)throw new Error('property field incomplete');$('landingCount').textContent=n.toLocaleString('en-US')+' properties'}catch(err){$('landingCount').textContent='property field offline'}}
+async function search(q){if(searching)return;searching=true;searchStarted=performance.now();show('measure');$('measureQuery').textContent=q;const measureItem=landingItems[(landingFrameIndex||0)%Math.max(landingItems.length,1)];setImage($('measureImage'),measureItem);elapsedTimer=setInterval(()=>{$('elapsed').textContent=((performance.now()-searchStarted)/1000).toFixed(1)+'s'},100);try{const {rows}=await postSearch(q,24);results=rows;index=0;render();show('result')}catch(err){show('landing');errorMessage(err.message||'property field unavailable')}finally{clearInterval(elapsedTimer);searching=false}}
+function render(){const x=results[index];if(!x)return;setImage($('resultImage'),x);$('position').textContent=String(index+1).padStart(2,'0')+' / '+String(results.length).padStart(2,'0');$('scoreLine').style.display='block';$('score').textContent=Number.isFinite(Number(x.score))?Number(x.score).toFixed(3):'—';$('price').textContent=money(x.price);$('address').textContent=x.address||x.title||'Property';const facts=[];if(x.bedrooms!=null)facts.push(x.bedrooms+' beds');if(x.bathrooms!=null)facts.push(x.bathrooms+' baths');if(x.squareFeet)facts.push(Number(x.squareFeet).toLocaleString('en-US')+' sqft');if(x.propertyType)facts.push(x.propertyType);if(x.status||x.availability)facts.push(x.status||x.availability);$('facts').innerHTML=facts.map(v=>'<span>'+esc(v)+'</span>').join('');$('remarks').textContent=x.overview||x.remarks||'';const url=x.externalUrl||x.url||'#';$('openListing').href=url;$('openListing').style.display=url==='#'?'none':'inline-block';$('resultCount').textContent=results.length+' results';$('tiles').innerHTML=results.map((r,i)=>{const image=imageOf(r);return '<button class="tile '+(i===index?'on':'')+'" data-i="'+i+'">'+(image?'<img src="'+attr(image)+'" alt="">':'')+'<span>'+String(i+1).padStart(2,'0')+'</span></button>'}).join('');$('tiles').querySelectorAll('.tile').forEach(b=>b.onclick=()=>{index=Number(b.dataset.i);render()});const on=$('tiles').querySelector('.tile.on');if(on)on.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'})}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function attr(v){return esc(v)}
+function home(){show('landing');setTimeout(()=>$('query').focus(),0)}
+$('landingForm').onsubmit=e=>{e.preventDefault();const q=$('query').value.trim();if(q)search(q)};
+$('query').oninput=e=>fit(e.target);
+$('query').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('landingForm').requestSubmit()}});
+document.querySelectorAll('.prompt').forEach(button=>button.addEventListener('click',()=>{$('query').value=button.textContent.trim();fit($('query'));$('landingForm').requestSubmit()}));
+$('landingBrand').onclick=home;$('measureBrand').onclick=home;$('resultBrand').onclick=home;$('newSearch').onclick=home;$('prev').onclick=()=>{if(!results.length)return;index=(index-1+results.length)%results.length;render()};$('next').onclick=()=>{if(!results.length)return;index=(index+1)%results.length;render()};window.addEventListener('keydown',e=>{if(plate==='result'&&e.key==='ArrowRight')$('next').click();if(plate==='result'&&e.key==='ArrowLeft')$('prev').click();if(e.key==='Escape')home()});
+$('landingCount').textContent='connecting';manifest();hydrateLanding();
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+# Secrets
+config.env
+.env
+*.env.local
+
+# Runtime data and generated fields
+venv/
+.venv/
+state/
+snapshots/
+field-current/
+field-next-*/
+live-index/
+archive/
+*.sqlite3
+*.sqlite3-*
+*.f32
+*.jsonl
+*.jsonl.gz
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# macOS and editors
+.DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
