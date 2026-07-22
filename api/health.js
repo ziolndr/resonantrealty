@@ -15,25 +15,28 @@ module.exports = async function handler(req, res) {
     const upstream = await fetch(`${base}/field/v1/manifest`, {
       headers: {
         accept: "application/json",
+        "ngrok-skip-browser-warning": "1",
         "user-agent": "RESONANT/1.0"
       },
-      signal: AbortSignal.timeout(12000)
+      signal: AbortSignal.timeout(20000)
     });
 
-    const data = await upstream.json();
+    const body = await upstream.json();
 
     return res.status(upstream.ok ? 200 : 502).json({
       ok: upstream.ok,
       routes: true,
       backend: upstream.ok,
-      count: Number(data.count || 0),
-      build: "dns-safe-tunnel-20260721"
+      backend_url: base,
+      count: Number(body.count || body.total_records || 0),
+      build: "github-push-and-env-deploy-20260721"
     });
   } catch (error) {
     return res.status(502).json({
       ok: false,
       routes: true,
       backend: false,
+      backend_url: base,
       error: error instanceof Error ? error.message : String(error)
     });
   }

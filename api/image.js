@@ -13,7 +13,6 @@ const ALLOWED = [
 
 function allowed(hostname) {
   const host = String(hostname || "").toLowerCase();
-
   return ALLOWED.some(
     suffix => host === suffix.slice(1) || host.endsWith(suffix)
   );

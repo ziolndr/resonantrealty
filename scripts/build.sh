@@ -2,11 +2,7 @@
 set -eu
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
-SOURCE="$ROOT/index.html"
-
-if [ -f "$ROOT/web/index.html" ]; then
-  SOURCE="$ROOT/web/index.html"
-fi
+SOURCE="$ROOT/web/index.html"
 
 test -s "$SOURCE"
 grep -q '/field/v1/search' "$SOURCE"
