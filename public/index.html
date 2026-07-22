@@ -257,5 +257,855 @@ window.addEventListener('keydown',e=>{if(plate==='result'&&e.key==='ArrowRight')
 window.addEventListener('unhandledrejection',e=>errorMessage((e.reason&&e.reason.message)||'request failed'));
 $('landingCount').textContent='connecting';manifest();hydrateLanding();
 </script>
+
+<!-- RESONANT_RESULTS_SEARCH_PROGRESSIVE_V1_START -->
+<style id="resonant-results-progressive-style">
+  [data-resonant-progressive-item][hidden] {
+    display: none !important;
+  }
+
+  .resonant-results-search {
+    box-sizing: border-box;
+    width: min(1120px, calc(100% - 32px));
+    margin: 24px auto 28px;
+    display: flex;
+    align-items: stretch;
+    border: 1px solid currentColor;
+    background: #fff;
+    color: #090909;
+    position: relative;
+    z-index: 20;
+  }
+
+  .resonant-results-search input {
+    appearance: none;
+    -webkit-appearance: none;
+    min-width: 0;
+    flex: 1 1 auto;
+    border: 0;
+    outline: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    padding: 17px 18px;
+    font: inherit;
+    font-size: clamp(16px, 2vw, 22px);
+    line-height: 1.2;
+  }
+
+  .resonant-results-search button {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 0 0 auto;
+    border: 0;
+    border-left: 1px solid currentColor;
+    border-radius: 0;
+    background: #090909;
+    color: #fff;
+    padding: 0 22px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .resonant-results-search button:focus-visible,
+  .resonant-results-search input:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -3px;
+  }
+
+  .resonant-progressive-sentinel {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 2px;
+    pointer-events: none;
+  }
+
+  @media (max-width: 640px) {
+    .resonant-results-search {
+      width: calc(100% - 24px);
+      margin: 16px auto 22px;
+    }
+
+    .resonant-results-search input {
+      padding: 15px 14px;
+      font-size: 16px;
+    }
+
+    .resonant-results-search button {
+      padding: 0 15px;
+      letter-spacing: .08em;
+    }
+  }
+</style>
+
+<script id="resonant-results-search-progressive">
+(() => {
+  "use strict";
+
+  const PAGE_SIZE = 10;
+  const REQUEST_SIZE = 50;
+  const STORAGE_KEY = "resonant:last-property-query";
+  const BAR_ATTRIBUTE = "data-resonant-results-search";
+  const ITEM_ATTRIBUTE = "data-resonant-progressive-item";
+
+  const state = {
+    query: "",
+    signature: "",
+    cards: [],
+    parent: null,
+    visible: PAGE_SIZE,
+    sentinel: null,
+    observer: null,
+    scheduled: false,
+    applying: false
+  };
+
+  function safeStorageGet() {
+    try {
+      return window.sessionStorage.getItem(STORAGE_KEY) || "";
+    } catch {
+      return "";
+    }
+  }
+
+  function safeStorageSet(value) {
+    try {
+      window.sessionStorage.setItem(STORAGE_KEY, value);
+    } catch {
+      // Storage is optional.
+    }
+  }
+
+  function normalizeQuery(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function rememberQuery(value) {
+    const query = normalizeQuery(value);
+
+    if (!query) {
+      return;
+    }
+
+    state.query = query;
+    safeStorageSet(query);
+  }
+
+  state.query = safeStorageGet();
+
+  function isTextControl(element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+
+    if (element.tagName === "TEXTAREA") {
+      return true;
+    }
+
+    if (element.tagName !== "INPUT") {
+      return false;
+    }
+
+    const type = String(element.getAttribute("type") || "text").toLowerCase();
+
+    return ["text", "search", ""].includes(type);
+  }
+
+  function isVisible(element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+
+    const style = window.getComputedStyle(element);
+
+    if (
+      style.display === "none" ||
+      style.visibility === "hidden" ||
+      Number(style.opacity) === 0
+    ) {
+      return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function searchControlScore(element) {
+    if (!isTextControl(element)) {
+      return -1;
+    }
+
+    if (element.closest(`[${BAR_ATTRIBUTE}]`)) {
+      return -1;
+    }
+
+    const haystack = [
+      element.id,
+      element.className,
+      element.getAttribute("name"),
+      element.getAttribute("placeholder"),
+      element.getAttribute("aria-label"),
+      element.getAttribute("autocomplete")
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    let score = 0;
+
+    if (/search|find|property|home|describe|looking|want|query|summon/.test(haystack)) {
+      score += 8;
+    }
+
+    if (element.tagName === "INPUT" && element.type === "search") {
+      score += 4;
+    }
+
+    if (isVisible(element)) {
+      score += 3;
+    }
+
+    if (element.form) {
+      score += 2;
+    }
+
+    return score;
+  }
+
+  function originalSearchControls() {
+    return [...document.querySelectorAll(
+      'input:not([type]), input[type="text"], input[type="search"], textarea'
+    )]
+      .filter(element => !element.closest(`[${BAR_ATTRIBUTE}]`))
+      .map(element => ({
+        element,
+        score: searchControlScore(element)
+      }))
+      .filter(entry => entry.score >= 0)
+      .sort((a, b) => b.score - a.score)
+      .map(entry => entry.element);
+  }
+
+  function currentTypedQuery() {
+    const active = document.activeElement;
+
+    if (isTextControl(active)) {
+      const value = normalizeQuery(active.value);
+
+      if (value) {
+        return value;
+      }
+    }
+
+    for (const control of originalSearchControls()) {
+      const value = normalizeQuery(control.value);
+
+      if (value) {
+        return value;
+      }
+    }
+
+    const injected = document.querySelector(
+      `[${BAR_ATTRIBUTE}] input[type="search"]`
+    );
+
+    if (injected) {
+      const value = normalizeQuery(injected.value);
+
+      if (value) {
+        return value;
+      }
+    }
+
+    return state.query;
+  }
+
+  function setControlValue(control, value) {
+    if (!isTextControl(control)) {
+      return;
+    }
+
+    if (document.activeElement === control && normalizeQuery(control.value)) {
+      return;
+    }
+
+    if (control.value === value) {
+      return;
+    }
+
+    if (control instanceof HTMLInputElement) {
+      const descriptor = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      );
+
+      if (descriptor?.set) {
+        descriptor.set.call(control, value);
+      } else {
+        control.value = value;
+      }
+    } else {
+      control.value = value;
+    }
+
+    control.dispatchEvent(new Event("input", {
+      bubbles: true
+    }));
+
+    control.dispatchEvent(new Event("change", {
+      bubbles: true
+    }));
+  }
+
+  function cardTextScore(element) {
+    if (!(element instanceof HTMLElement)) {
+      return -100;
+    }
+
+    if (
+      ["SCRIPT", "STYLE", "TEMPLATE", "NOSCRIPT"].includes(element.tagName)
+    ) {
+      return -100;
+    }
+
+    const text = normalizeQuery(element.innerText).slice(0, 1200);
+
+    if (!text || text.length < 18) {
+      return -100;
+    }
+
+    let score = 0;
+
+    if (element.matches(
+      [
+        "[data-result]",
+        "[data-property]",
+        ".result-card",
+        ".property-card",
+        ".listing-card",
+        ".property-result",
+        ".search-result",
+        ".result-item"
+      ].join(",")
+    )) {
+      score += 20;
+    }
+
+    if (element.querySelector("img, picture")) {
+      score += 5;
+    }
+
+    if (element.querySelector("a[href], button")) {
+      score += 2;
+    }
+
+    if (/\$[\d,.]+/.test(text)) {
+      score += 5;
+    }
+
+    if (/\b(bed|beds|bath|baths|sq\.?\s*ft|acre|resonance|score)\b/i.test(text)) {
+      score += 4;
+    }
+
+    if (text.length > 55) {
+      score += 2;
+    }
+
+    return score;
+  }
+
+  function groupSignature(cards) {
+    return [
+      cards.length,
+      ...cards.slice(0, 4).map(card =>
+        normalizeQuery(card.innerText).slice(0, 90)
+      )
+    ].join("|");
+  }
+
+  function collectExplicitGroups() {
+    const selector = [
+      "[data-result]",
+      "[data-property]",
+      ".result-card",
+      ".property-card",
+      ".listing-card",
+      ".property-result",
+      ".search-result",
+      ".result-item"
+    ].join(",");
+
+    const groups = new Map();
+
+    for (const card of document.querySelectorAll(selector)) {
+      if (!(card instanceof HTMLElement)) {
+        continue;
+      }
+
+      if (card.closest(`[${BAR_ATTRIBUTE}]`)) {
+        continue;
+      }
+
+      const parent = card.parentElement;
+
+      if (!parent) {
+        continue;
+      }
+
+      if (!groups.has(parent)) {
+        groups.set(parent, []);
+      }
+
+      groups.get(parent).push(card);
+    }
+
+    return [...groups.entries()].map(([parent, cards]) => ({
+      parent,
+      cards,
+      score: cards.length * 30 +
+        cards.reduce((sum, card) => sum + Math.max(0, cardTextScore(card)), 0)
+    }));
+  }
+
+  function collectGenericGroups() {
+    const selectors = [
+      "main",
+      "section",
+      '[id*="result" i]',
+      '[class*="result" i]',
+      '[id*="listing" i]',
+      '[class*="listing" i]',
+      '[id*="property" i]',
+      '[class*="property" i]',
+      '[class*="grid" i]',
+      '[class*="cards" i]'
+    ].join(",");
+
+    const groups = [];
+
+    for (const parent of document.querySelectorAll(selectors)) {
+      if (!(parent instanceof HTMLElement)) {
+        continue;
+      }
+
+      if (parent.closest(`[${BAR_ATTRIBUTE}]`)) {
+        continue;
+      }
+
+      const cards = [...parent.children].filter(child =>
+        child instanceof HTMLElement &&
+        cardTextScore(child) >= 5
+      );
+
+      if (cards.length < 2) {
+        continue;
+      }
+
+      const score = cards.length * 10 +
+        cards.reduce((sum, card) => sum + cardTextScore(card), 0);
+
+      groups.push({
+        parent,
+        cards,
+        score
+      });
+    }
+
+    return groups;
+  }
+
+  function findResultGroup() {
+    const groups = [
+      ...collectExplicitGroups(),
+      ...collectGenericGroups()
+    ]
+      .filter(group =>
+        group.cards.length >= 2 &&
+        group.parent.isConnected
+      )
+      .sort((a, b) => b.score - a.score);
+
+    return groups[0] || null;
+  }
+
+  function disconnectObserver() {
+    if (state.observer) {
+      state.observer.disconnect();
+      state.observer = null;
+    }
+  }
+
+  function revealNextPage() {
+    if (!state.cards.length || state.visible >= state.cards.length) {
+      return;
+    }
+
+    state.visible = Math.min(
+      state.visible + PAGE_SIZE,
+      state.cards.length
+    );
+
+    applyCardVisibility();
+  }
+
+  function installSentinel() {
+    if (!state.parent || !state.cards.length) {
+      return;
+    }
+
+    if (!state.sentinel || !state.sentinel.isConnected) {
+      state.sentinel = document.createElement("div");
+      state.sentinel.className = "resonant-progressive-sentinel";
+      state.sentinel.setAttribute("aria-hidden", "true");
+      state.parent.appendChild(state.sentinel);
+    }
+
+    disconnectObserver();
+
+    if (state.visible >= state.cards.length) {
+      state.sentinel.hidden = true;
+      return;
+    }
+
+    state.sentinel.hidden = false;
+
+    state.observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        revealNextPage();
+      }
+    }, {
+      root: null,
+      rootMargin: "700px 0px",
+      threshold: 0
+    });
+
+    state.observer.observe(state.sentinel);
+  }
+
+  function applyCardVisibility() {
+    state.applying = true;
+
+    try {
+      state.cards.forEach((card, index) => {
+        card.setAttribute(ITEM_ATTRIBUTE, "");
+        card.hidden = index >= state.visible;
+      });
+
+      installSentinel();
+    } finally {
+      state.applying = false;
+    }
+  }
+
+  function resultSearchTarget(group) {
+    const closest = group.parent.closest(
+      'main, section, [id*="result" i], [class*="result" i]'
+    );
+
+    return closest || group.parent;
+  }
+
+  function triggerExistingSearch(query) {
+    rememberQuery(query);
+
+    const controls = originalSearchControls();
+    const target = controls[0] || null;
+
+    if (!target) {
+      return false;
+    }
+
+    setControlValue(target, query);
+
+    const form = target.form || target.closest("form");
+
+    if (form) {
+      if (typeof form.requestSubmit === "function") {
+        form.requestSubmit();
+      } else {
+        form.dispatchEvent(new Event("submit", {
+          bubbles: true,
+          cancelable: true
+        }));
+      }
+
+      return true;
+    }
+
+    target.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Enter",
+      code: "Enter",
+      bubbles: true,
+      cancelable: true
+    }));
+
+    target.dispatchEvent(new KeyboardEvent("keyup", {
+      key: "Enter",
+      code: "Enter",
+      bubbles: true,
+      cancelable: true
+    }));
+
+    const button = [...document.querySelectorAll(
+      'button, input[type="submit"], [role="button"]'
+    )].find(element => {
+      if (element.closest(`[${BAR_ATTRIBUTE}]`)) {
+        return false;
+      }
+
+      const label = normalizeQuery(
+        element.innerText ||
+        element.value ||
+        element.getAttribute("aria-label")
+      ).toLowerCase();
+
+      return /search|find|summon|show|go/.test(label);
+    });
+
+    if (button) {
+      button.click();
+      return true;
+    }
+
+    return false;
+  }
+
+  function ensureInjectedSearch(group) {
+    const target = resultSearchTarget(group);
+    const existingVisibleControl = originalSearchControls().find(isVisible);
+
+    if (existingVisibleControl) {
+      setControlValue(existingVisibleControl, state.query);
+      document.querySelector(`[${BAR_ATTRIBUTE}]`)?.remove();
+      return;
+    }
+
+    let form = document.querySelector(`[${BAR_ATTRIBUTE}]`);
+
+    if (!form) {
+      form = document.createElement("form");
+      form.className = "resonant-results-search";
+      form.setAttribute(BAR_ATTRIBUTE, "");
+      form.setAttribute("role", "search");
+      form.innerHTML = [
+        '<input type="search" aria-label="Search properties"',
+        ' autocomplete="off" spellcheck="false">',
+        '<button type="submit">Search</button>'
+      ].join("");
+
+      form.addEventListener("submit", event => {
+        event.preventDefault();
+
+        const input = form.querySelector('input[type="search"]');
+        const query = normalizeQuery(input?.value);
+
+        if (!query) {
+          input?.focus();
+          return;
+        }
+
+        if (!triggerExistingSearch(query)) {
+          window.location.assign(
+            `/?q=${encodeURIComponent(query)}`
+          );
+        }
+      });
+    }
+
+    const input = form.querySelector('input[type="search"]');
+
+    if (
+      input &&
+      document.activeElement !== input &&
+      input.value !== state.query
+    ) {
+      input.value = state.query;
+    }
+
+    if (!form.isConnected || form.nextElementSibling !== target) {
+      target.parentElement?.insertBefore(form, target);
+    }
+  }
+
+  function sync() {
+    state.scheduled = false;
+
+    if (state.applying) {
+      return;
+    }
+
+    const typed = currentTypedQuery();
+
+    if (typed) {
+      rememberQuery(typed);
+    }
+
+    const group = findResultGroup();
+
+    if (!group) {
+      disconnectObserver();
+      document.querySelector(`[${BAR_ATTRIBUTE}]`)?.remove();
+      return;
+    }
+
+    const signature = groupSignature(group.cards);
+
+    if (
+      signature !== state.signature ||
+      group.parent !== state.parent
+    ) {
+      disconnectObserver();
+
+      for (const oldCard of state.cards) {
+        oldCard.hidden = false;
+        oldCard.removeAttribute(ITEM_ATTRIBUTE);
+      }
+
+      state.signature = signature;
+      state.parent = group.parent;
+      state.cards = group.cards;
+      state.visible = PAGE_SIZE;
+      state.sentinel?.remove();
+      state.sentinel = null;
+    } else {
+      state.cards = group.cards;
+    }
+
+    for (const control of originalSearchControls()) {
+      if (!normalizeQuery(control.value)) {
+        setControlValue(control, state.query);
+      }
+    }
+
+    ensureInjectedSearch(group);
+    applyCardVisibility();
+  }
+
+  function scheduleSync() {
+    if (state.scheduled) {
+      return;
+    }
+
+    state.scheduled = true;
+    window.setTimeout(sync, 80);
+  }
+
+  document.addEventListener("input", event => {
+    if (!isTextControl(event.target)) {
+      return;
+    }
+
+    const value = normalizeQuery(event.target.value);
+
+    if (value) {
+      rememberQuery(value);
+    }
+  }, true);
+
+  document.addEventListener("submit", event => {
+    const control = event.target?.querySelector?.(
+      'input[type="search"], input[type="text"], input:not([type]), textarea'
+    );
+
+    if (control) {
+      rememberQuery(control.value);
+    }
+
+    scheduleSync();
+  }, true);
+
+  document.addEventListener("click", event => {
+    const button = event.target?.closest?.(
+      'button, input[type="submit"], [role="button"]'
+    );
+
+    if (!button) {
+      return;
+    }
+
+    const label = normalizeQuery(
+      button.innerText ||
+      button.value ||
+      button.getAttribute("aria-label")
+    ).toLowerCase();
+
+    if (/search|find|summon|show|go/.test(label)) {
+      rememberQuery(currentTypedQuery());
+      scheduleSync();
+    }
+  }, true);
+
+  const originalFetch = window.fetch.bind(window);
+
+  window.fetch = async function resonantFetch(input, init) {
+    let nextInit = init;
+
+    const url = typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input?.url || "";
+
+    if (
+      String(url).includes("/field/v1/search") &&
+      init &&
+      typeof init.body === "string"
+    ) {
+      try {
+        const payload = JSON.parse(init.body);
+        const query = normalizeQuery(payload.text);
+
+        if (query) {
+          rememberQuery(query);
+        }
+
+        payload.k = Math.max(
+          Number(payload.k || 0),
+          REQUEST_SIZE
+        );
+
+        nextInit = {
+          ...init,
+          body: JSON.stringify(payload)
+        };
+      } catch {
+        // Preserve the original request when the body is not JSON.
+      }
+    }
+
+    const response = await originalFetch(input, nextInit);
+    scheduleSync();
+
+    return response;
+  };
+
+  const mutationObserver = new MutationObserver(() => {
+    scheduleSync();
+  });
+
+  function start() {
+    mutationObserver.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+
+    scheduleSync();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start, {
+      once: true
+    });
+  } else {
+    start();
+  }
+})();
+</script>
+<!-- RESONANT_RESULTS_SEARCH_PROGRESSIVE_V1_END -->
 </body>
 </html>
