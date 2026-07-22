@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
     const upstream = await fetch(`${base}/field/v1/manifest`, {
       headers: {
         accept: "application/json",
-        "ngrok-skip-browser-warning": "1"
+        "user-agent": "RESONANT/1.0"
       },
       signal: AbortSignal.timeout(12000)
     });
@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
       routes: true,
       backend: upstream.ok,
       count: Number(data.count || 0),
-      build: "flat-vercel-routes-20260721"
+      build: "dns-safe-tunnel-20260721"
     });
   } catch (error) {
     return res.status(502).json({

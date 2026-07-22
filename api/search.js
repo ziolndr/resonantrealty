@@ -38,7 +38,6 @@ module.exports = async function handler(req, res) {
       headers: {
         accept: "application/json",
         "content-type": "application/json",
-        "ngrok-skip-browser-warning": "1",
         "user-agent": "RESONANT/1.0"
       },
       body: JSON.stringify({ text, k }),

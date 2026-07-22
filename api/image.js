@@ -13,6 +13,7 @@ const ALLOWED = [
 
 function allowed(hostname) {
   const host = String(hostname || "").toLowerCase();
+
   return ALLOWED.some(
     suffix => host === suffix.slice(1) || host.endsWith(suffix)
   );
@@ -34,6 +35,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (target.protocol === "http:") target.protocol = "https:";
+
   if (target.protocol !== "https:" || !allowed(target.hostname)) {
     return res.status(403).json({ error: "image host not allowed" });
   }
@@ -59,6 +61,7 @@ module.exports = async function handler(req, res) {
     }
 
     const type = upstream.headers.get("content-type") || "";
+
     if (!type.toLowerCase().startsWith("image/")) {
       return res.status(415).json({
         error: "upstream did not return an image"
@@ -75,6 +78,7 @@ module.exports = async function handler(req, res) {
     if (req.method === "HEAD") return res.end();
 
     const body = Buffer.from(await upstream.arrayBuffer());
+
     if (body.length > 10 * 1024 * 1024) {
       return res.status(413).json({ error: "image too large" });
     }

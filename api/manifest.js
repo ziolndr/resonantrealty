@@ -21,7 +21,6 @@ module.exports = async function handler(req, res) {
       method: req.method,
       headers: {
         accept: "application/json",
-        "ngrok-skip-browser-warning": "1",
         "user-agent": "RESONANT/1.0"
       },
       redirect: "follow",
