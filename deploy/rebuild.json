@@ -1,0 +1,7 @@
+{
+  "service": "RESONANT",
+  "reason": "Apply production RESONANT_BACKEND_URL and rebuild Vercel",
+  "production_backend": "https://recast-reviver-outlook.ngrok-free.dev",
+  "requested_at": "2026-07-22T01:10:57Z",
+  "nonce": "06f40026f20d4a99636d180f"
+}
