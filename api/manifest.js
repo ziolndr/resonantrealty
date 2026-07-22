@@ -1,34 +1,31 @@
-const backend = () =>
-  String(process.env.RESONANT_BACKEND_URL || "")
-    .trim()
-    .replace(/\/+$/, "");
+const {
+  RESONANT_BACKEND
+} = require("../lib/resonant-backend");
 
 module.exports = async function handler(req, res) {
   if (!["GET", "HEAD"].includes(req.method || "GET")) {
     res.setHeader("Allow", "GET, HEAD");
-    return res.status(405).json({ error: "method not allowed" });
-  }
-
-  const base = backend();
-  if (!base) {
-    return res.status(503).json({
-      error: "RESONANT_BACKEND_URL is not configured"
+    return res.status(405).json({
+      error: "method not allowed"
     });
   }
 
   try {
-    const upstream = await fetch(`${base}/field/v1/manifest`, {
-      method: req.method,
-      headers: {
-        accept: "application/json",
-        "ngrok-skip-browser-warning": "1",
-        "user-agent": "RESONANT/1.0"
-      },
-      redirect: "follow",
-      signal: AbortSignal.timeout(20000)
-    });
+    const upstream = await fetch(
+      `${RESONANT_BACKEND}/field/v1/manifest`,
+      {
+        method: req.method,
+        headers: {
+          accept: "application/json",
+          "user-agent": "RESONANT/1.0"
+        },
+        redirect: "follow",
+        signal: AbortSignal.timeout(20000)
+      }
+    );
 
     const body = Buffer.from(await upstream.arrayBuffer());
+
     res.status(upstream.status);
     res.setHeader(
       "Content-Type",
@@ -36,13 +33,23 @@ module.exports = async function handler(req, res) {
         "application/json; charset=utf-8"
     );
     res.setHeader("Cache-Control", "no-store");
+    res.setHeader(
+      "X-Resonant-Backend",
+      RESONANT_BACKEND
+    );
 
-    if (req.method === "HEAD") return res.end();
+    if (req.method === "HEAD") {
+      return res.end();
+    }
+
     return res.send(body);
   } catch (error) {
-    return res.status(502).json({
-      error: "RESONANT property manifest is unreachable",
-      detail: error instanceof Error ? error.message : String(error)
+    return res.status(503).json({
+      error: "property field unavailable",
+      backend: RESONANT_BACKEND,
+      detail: error instanceof Error
+        ? error.message
+        : String(error)
     });
   }
 };

@@ -5,10 +5,18 @@
   "outputDirectory": "public",
   "cleanUrls": true,
   "functions": {
-    "api/manifest.js": { "maxDuration": 30 },
-    "api/search.js": { "maxDuration": 60 },
-    "api/image.js": { "maxDuration": 30 },
-    "api/health.js": { "maxDuration": 30 }
+    "api/manifest.js": {
+      "maxDuration": 30
+    },
+    "api/search.js": {
+      "maxDuration": 60
+    },
+    "api/health.js": {
+      "maxDuration": 30
+    },
+    "api/image.js": {
+      "maxDuration": 30
+    }
   },
   "rewrites": [
     {
