@@ -68,6 +68,63 @@ button,textarea{font:inherit;color:inherit;border:0;background:none}button{curso
 @media(max-width:470px){.count{max-width:48vw;text-align:right}.landing-copy{bottom:178px}.landing-copy h1{font-size:50px}.landing-copy p:last-child{font-size:16px;max-width:26ch}.prompt-rail .prompt:nth-of-type(n+3){display:none}.facts{gap:7px 12px}.actions{display:grid;grid-template-columns:1fr}.actions a,.actions button{text-align:center}.result-bottom{bottom:12px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
+<!-- RESONANT_PUBLIC_IMAGE_ONLY_V1_START -->
+<link rel="preload" as="image" href="/api/image?url=https%3A%2F%2Fap.rdcpix.com%2Fef5e918a9d5c86cf4fece21d1b6c0fd0l-m4218454523od-w480_h360_x2.webp%3Fw%3D1080%26q%3D75" fetchpriority="high">
+<script id="resonant-public-image-only">
+(() => {
+  "use strict";
+
+  function realImage(row) {
+    const values = [];
+    if (typeof row?.imageUrl === "string") values.push(row.imageUrl);
+    if (Array.isArray(row?.images)) values.push(...row.images);
+    return values.some(value =>
+      typeof value === "string" &&
+      /^https?:\/\//i.test(value)
+    );
+  }
+
+  const originalFetch = window.fetch.bind(window);
+
+  window.fetch = async function(input, init) {
+    const response = await originalFetch(input, init);
+    const url = typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input?.url || "";
+
+    if (!String(url).includes("/field/v1/search")) {
+      return response;
+    }
+
+    try {
+      const data = await response.clone().json();
+      const key = Array.isArray(data.results)
+        ? "results"
+        : Array.isArray(data.matches)
+          ? "matches"
+          : Array.isArray(data.items)
+            ? "items"
+            : "";
+
+      if (!key) return response;
+
+      data[key] = data[key].filter(realImage);
+      data.count = data[key].length;
+
+      return new Response(JSON.stringify(data), {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    } catch (_) {
+      return response;
+    }
+  };
+})();
+</script>
+<!-- RESONANT_PUBLIC_IMAGE_ONLY_V1_END -->
 </head>
 <body>
 <section class="screen on" id="landing">
@@ -1138,153 +1195,7 @@ $('landingCount').textContent='connecting';manifest();hydrateLanding();
 </script>
 <!-- RESONANT_RESULTS_SEARCH_PROGRESSIVE_V1_END -->
 
-<!-- RESONANT_IMAGE_FIX_START -->
-<style id="resonant-image-fix-style">
-  .resonant-image-fallback{
-    position:relative;
-    background:
-      radial-gradient(circle at 50% 35%, rgba(255,255,255,.14), rgba(255,255,255,0) 42%),
-      linear-gradient(180deg, rgba(5,5,7,.88), rgba(5,5,7,.95));
-    overflow:hidden;
-  }
-  .resonant-image-fallback::before{
-    content:"PHOTO PENDING";
-    position:absolute;
-    left:12px;
-    bottom:12px;
-    font-size:10px;
-    letter-spacing:.18em;
-    color:rgba(255,255,255,.72);
-    white-space:nowrap;
-  }
-</style>
-<script id="resonant-image-fix-script">
-(() => {
-  "use strict";
-  const seen = new Set();
-  const q = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const norm = (u) => (u ? String(u).trim().replace(/^['"]|['"]$/g, "") : "");
-  const real = (u) => !!u && !/^data:/i.test(u) && !/undefined|null|none|placeholder/i.test(u);
 
-  function preload(url, high = false){
-    url = norm(url);
-    if(!real(url) || seen.has(url)) return;
-    seen.add(url);
-    try{
-      const link = document.createElement("link");
-      link.rel = "preload";
-      link.as = "image";
-      link.href = url;
-      if(high) link.setAttribute("fetchpriority","high");
-      document.head.appendChild(link);
-    }catch(_){}
-    try{
-      const img = new Image();
-      if(high && "fetchPriority" in img) img.fetchPriority = "high";
-      img.decoding = "async";
-      img.src = url;
-    }catch(_){}
-  }
-
-  function bg(el){
-    const direct = el?.dataset?.imageUrl || el?.dataset?.image || el?.getAttribute?.("data-image-url") || el?.getAttribute?.("data-image");
-    if(real(direct)) return direct;
-    const value = el ? getComputedStyle(el).backgroundImage : "";
-    const m = /url\((['"]?)(.*?)\1\)/i.exec(value || "");
-    return m && m[2] ? m[2] : "";
-  }
-
-  function cardLike(node){
-    if(!(node instanceof HTMLElement)) return false;
-    const r = node.getBoundingClientRect();
-    if(r.width < 48 || r.height < 48) return false;
-    return /card|tile|thumb|hero|result|ranked|listing|photo|image/i.test(
-      [node.className || "", node.id || "", node.getAttribute("data-role") || ""].join(" ")
-    );
-  }
-
-  function fallback(node){
-    if(!(node instanceof HTMLElement)) return;
-    if(node.dataset.resonantFallbackApplied === "1") return;
-    node.dataset.resonantFallbackApplied = "1";
-    node.classList.add("resonant-image-fallback");
-  }
-
-  function hydrate(){
-    const imgs = q("img");
-    imgs.forEach((img, i) => {
-      const src = norm(img.currentSrc || img.src);
-      if(i < 6){
-        try{ img.loading = "eager"; }catch(_){}
-        try{ img.decoding = "async"; }catch(_){}
-        if("fetchPriority" in img) img.fetchPriority = i === 0 ? "high" : "auto";
-      }
-      if(real(src)) preload(src, i === 0);
-      else if(cardLike(img.parentElement)) fallback(img.parentElement);
-      img.addEventListener("error", () => fallback(img.parentElement), { once:true });
-    });
-
-    let first = false;
-    q("[style*='background'], [data-image], [data-image-url]").forEach((node) => {
-      const src = norm(bg(node));
-      if(real(src)){
-        preload(src, !first);
-        first = true;
-      }else if(cardLike(node)){
-        fallback(node);
-      }
-    });
-  }
-
-  function reorder(){
-    const parents = new Set();
-    q("[data-resonant-progressive-item], .ranked-properties > *, .ranked-properties .card, .ranked-properties .tile, .ranked-properties .thumb")
-      .filter(cardLike)
-      .forEach(node => node.parentElement && parents.add(node.parentElement));
-
-    parents.forEach(parent => {
-      const kids = Array.from(parent.children);
-      if(kids.length < 2) return;
-      const withImg = [], withoutImg = [];
-      kids.forEach(kid => {
-        const img = kid.querySelector("img");
-        const src = norm(img?.currentSrc || img?.src || bg(kid));
-        (real(src) ? withImg : withoutImg).push(kid);
-      });
-      if(!withImg.length || !withoutImg.length) return;
-      [...withImg, ...withoutImg].forEach(k => parent.appendChild(k));
-    });
-  }
-
-  function run(){
-    hydrate();
-    reorder();
-  }
-
-  let scheduled = false;
-  function schedule(){
-    if(scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => {
-      scheduled = false;
-      run();
-    });
-  }
-
-  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", schedule, { once:true });
-  else schedule();
-
-  window.addEventListener("load", schedule, { once:true });
-
-  new MutationObserver(schedule).observe(document.documentElement, {
-    subtree:true,
-    childList:true,
-    attributes:true,
-    attributeFilter:["style","src","data-image","data-image-url"]
-  });
-})();
-</script>
-<!-- RESONANT_IMAGE_FIX_END -->
 
 </body>
 </html>
